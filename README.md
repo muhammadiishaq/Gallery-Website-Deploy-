@@ -13,6 +13,7 @@ This is a modern and responsive Gallery App built with TypeScript and Firebase f
 
 ## Technologies Used
 
+ 
 - **TypeScript**: For a robust, typed JavaScript experience.
 - **Firebase**: 
   - Authentication: For secure user authentication.
