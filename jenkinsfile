@@ -1,0 +1,73 @@
+pipeline {
+    agent any   // run on any available agent
+
+    stages {
+        stage("Cloning code") {
+            steps {
+                echo "Cloning repository..."
+                git url: "https://github.com/your-repo/", branch: "main"
+                echo "Code cloned successfully"
+            }
+        }
+
+        stage("Installing tools") {
+            steps {
+                echo "Installing Docker and Trivy..."
+                sh """
+                  curl -LO https://raw.githubusercontent.com/addico786/tools_download_scripts/master/docker.sh
+                  chmod +x docker.sh
+                  ./docker.sh
+
+                  curl -LO https://raw.githubusercontent.com/addico786/tools_download_scripts/master/trivy.sh
+                  chmod +x trivy.sh
+                  ./trivy.sh
+                """
+                echo "Tools installed successfully"
+            }
+        }
+
+        stage("Build Docker Image") {
+            steps {
+                echo "Building Docker image..."
+                sh """
+                  docker rmi -f gallery-app:latest || true
+                  docker build -t gallery-app:latest .
+                """
+                echo "Docker image built successfully"
+            }
+        }
+
+        stage("Scan Docker Image") {
+            steps {
+                echo "Scanning image with Trivy..."
+                sh "trivy image gallery-app:latest"
+                echo "Scan complete"
+            }
+        }
+
+        stage("Push Docker Image to DockerHub") {
+            steps {
+                echo "Pushing image to DockerHub..."
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag gallery-app:latest $DOCKER_USER/gallery-app:latest
+                        docker push $DOCKER_USER/gallery-app:latest
+                    """
+                }
+                echo "Image pushed successfully"
+            }
+        }
+
+        stage("Deploy Container") {
+            steps {
+                echo "Deploying container..."
+                sh """
+                  docker rm -f gallery-app-cont || true
+                  docker run -d --name gallery-app-cont -p 80:80 gallery-app:latest
+                """
+                echo "Gallery App is running on port 80"
+            }
+        }
+    }
+}
